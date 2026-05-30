@@ -48,26 +48,31 @@ def find_matches(df: pd.DataFrame, mask: pd.DataFrame, search_text: str, case_se
 
 def validate_data(req_data):
     if not req_data:
-        return None, None, None, jsonify({"error": "Invalid JSON"}), 400
+        return None, jsonify({"error": "Invalid JSON"}), 400
     
     data = req_data.get("data", [])
     search_text = req_data.get("search_text", "")
     case_sensitive = req_data.get("case_sensitive", False)
 
     if not data:
-        return None, None, None, jsonify({"error": "No data provided"}), 400
+        return None, jsonify({"error": "No data provided"}), 400
 
     if not search_text:
-        return None, None, None, jsonify({"error": "No search text provided"}), 400
+        return None, jsonify({"error": "No search text provided"}), 400
 
     try:
         df = pd.DataFrame(data)
     except Exception:
-        return None, None, None, jsonify({"error": "Could not convert data into DataFrame"}), 400
+        return None, jsonify({"error": "Could not convert data into DataFrame"}), 400
     
-    return df, search_text, case_sensitive, None, None
+    validated_data = {
+        "df": df,
+        "search_text": search_text,
+        "case_sensitive": case_sensitive
+    }
     
-
+    return validated_data, None
+    
 @app.route('/api/search', methods=['POST'])
 def search():
     """Searches through tabular data to find any matches.
@@ -77,10 +82,14 @@ def search():
     """
     req_data = request.get_json()
     
-    df, search_text, case_sensitive, error_message, status_code = validate_data(req_data)
+    data, error = validate_data(req_data)
     
-    if error_message:
-        return error_message, status_code
+    if error:
+        return error
+    
+    df = data["df"] 
+    search_text = data["search_text"]
+    case_sensitive = data["case_sensitive"]
     
     mask = get_matching_mask(df, search_text, case_sensitive)
     matches, match_count = find_matches(df, mask, search_text, case_sensitive)
@@ -93,7 +102,7 @@ def search():
     return jsonify(response)
 
 @app.route('/api/filter', methods=['POST'])
-def filter():
+def filter_data():
     """Filters tabular data and returns the filtered DataFrame.
 
     Returns:
@@ -101,10 +110,14 @@ def filter():
     """
     req_data = request.get_json()
     
-    df, search_text, case_sensitive, error_message, status_code = validate_data(req_data)
+    data, error = validate_data(req_data)
     
-    if error_message:
-        return error_message, status_code
+    if error:
+        return error
+    
+    df = data["df"]
+    search_text = data["search_text"]
+    case_sensitive = data["case_sensitive"]
 
     mask = get_matching_mask(df, search_text, case_sensitive)
     filtered_dataframe = df[mask.any(axis=1)]
